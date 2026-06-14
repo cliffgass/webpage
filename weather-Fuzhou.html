@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>实时天气</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .weather { background: #f0f0f0; padding: 20px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="weather">
+        <h1>当前天气</h1>
+        <div id="weather-data">加载中...</div>
+    </div>
+
+    <script>
+        // 替换为你的API密钥和城市
+        const API_KEY = "8321f900611d373f58039530b8a1a9ae";
+        const CITY = "Fuzhou,CN";
+
+        // 示例：使用OpenWeatherMap API
+        fetch(`https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${API_KEY}&units=metric`)
+            .then(response => response.json())
+            .then(data => {
+                const weatherDiv = document.getElementById('weather-data');
+                weatherDiv.innerHTML = `
+                    <p>城市：${data.name}</p>
+                    <p>温度：${data.main.temp}°C</p>
+                    <p>天气：${data.weather[0].description}</p>
+                    <p>湿度：${data.main.humidity}%</p>
+                `;
+            })
+            .catch(error => {
+                console.error('获取天气失败：', error);
+                document.getElementById('weather-data').innerHTML = "天气加载失败";
+            });
+    </script>
+</body>
+</html>
