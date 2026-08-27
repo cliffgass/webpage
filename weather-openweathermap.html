@@ -21,34 +21,19 @@
     <script>
         const API_KEY = "8321f900611d373f58039530b8a1a9ae";
 
-        // 通过 OpenWeather API 规范化城市名称
-        async function normalizeCityName(city) {
-            try {
-                const response = await fetch(
-                    `https://api.openweathermap.org/geo/1.0/direct?q=${city},CN&limit=1&appid=${API_KEY}`
-                );
-                const data = await response.json();
-                if (data.length > 0) {
-                    console.log("标准化城市名称:", data[0].name);
-                    return data[0].name; // 返回 API 认可的城市名称
-                }
-            } catch (error) {
-                console.error("获取标准化城市名失败:", error);
-            }
-            return city; // 如果无法获取，仍然使用原输入
-        }
-
-        async function getWeather(city) {
+        // 统一用经纬度查询天气（最准确，避免城市名歧义导致数据错误）
+        async function getWeatherByCoords(lat, lon, label) {
             const weatherDiv = document.getElementById('weather-data');
             weatherDiv.innerHTML = "正在加载天气数据...";
             try {
                 const response = await fetch(
-                    `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric&lang=zh_cn`
+                    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=zh_cn`
                 );
                 if (!response.ok) throw new Error(`查询失败: ${response.status}`);
                 const data = await response.json();
+                const location = label || `${data.name}${data.sys.country ? "，" + data.sys.country : ""}`;
                 weatherDiv.innerHTML = `
-                    <p>城市：${data.name}</p>
+                    <p>位置：${location}</p>
                     <p>温度：${data.main.temp}°C</p>
                     <p>体感温度：${data.main.feels_like}°C</p>
                     <p>天气：${data.weather[0].description}</p>
@@ -57,54 +42,67 @@
                 `;
             } catch (error) {
                 console.error("获取天气失败:", error);
-                weatherDiv.innerHTML = "天气数据加载失败，请检查城市名称";
+                weatherDiv.innerHTML = "天气数据加载失败，请稍后重试或手动输入城市";
             }
         }
 
-        // 手动输入城市查询天气
+        // 手动输入城市查询天气：先解析中文城市名为经纬度，再查天气
         async function getWeatherByCity() {
-            let city = document.getElementById('city-input').value.trim();
+            const city = document.getElementById('city-input').value.trim();
             if (!city) return;
 
-            city = await normalizeCityName(city); // 先转换为 API 认可的名称
-            getWeather(city);
+            try {
+                const geoRes = await fetch(
+                    `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)},CN&limit=1&appid=${API_KEY}`
+                );
+                if (!geoRes.ok) throw new Error(`地理编码失败: ${geoRes.status}`);
+                const geoData = await geoRes.json();
+
+                if (!geoData.length) throw new Error("未找到该城市");
+
+                const loc = geoData[0];
+                const label = `${loc.name}${loc.state ? "·" + loc.state : ""}${loc.country ? "·" + loc.country : ""}`;
+                await getWeatherByCoords(loc.lat, loc.lon, label);
+            } catch (error) {
+                console.error("查询失败:", error);
+                document.getElementById('weather-data').innerHTML = "城市未找到，请尝试输入如「福州」「北京」等城市名";
+            }
         }
 
         // 页面加载时自动定位
-        async function getLocation() {
+        function getLocation() {
             if (!navigator.geolocation) {
                 document.getElementById('weather-data').innerHTML = "浏览器不支持地理定位";
                 return;
             }
             navigator.geolocation.getCurrentPosition(async position => {
+                const { latitude: lat, longitude: lon } = position.coords;
+
+                // 反向地理编码仅用于显示位置名称，天气数据直接用经纬度查询
+                let label = "";
                 try {
-                    const { latitude: lat, longitude: lon } = position.coords;
-                    const response = await fetch(
+                    const res = await fetch(
                         `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
                     );
-                    const data = await response.json();
-
-                    console.log("反向地理编码数据:", data);
-
-	                if (data.length > 0) {
-        	            let city = data[0].name; // 可能是区或县
-                	    let state = data[0].state || ""; // 省级信息
-                      	    let country = data[0].country || "CN"; // 国家
-
-                    	   console.log("使用的城市名称:", city);
-                    	   getWeather(city); // 继续查询天气
-                	} else {
-                    		throw new Error("无法解析城市名称");
-                	}
+                    const data = await res.json();
+                    if (data.length > 0) {
+                        const loc = data[0];
+                        label = `${loc.name}${loc.state ? "·" + loc.state : ""}${loc.country ? "·" + loc.country : ""}`;
+                    }
                 } catch (error) {
-                    console.error("获取城市失败:", error);
-                    document.getElementById('weather-data').innerHTML = "城市获取失败，请手动输入";
+                    console.error("反向地理编码失败:", error);
                 }
+                await getWeatherByCoords(lat, lon, label);
             }, error => {
                 console.error("定位失败:", error);
                 document.getElementById('weather-data').innerHTML = "自动定位失败，请手动输入城市";
             });
         }
+
+        // 输入框按回车直接查询
+        document.getElementById('city-input').addEventListener('keydown', e => {
+            if (e.key === "Enter") getWeatherByCity();
+        });
 
         window.onload = getLocation;
     </script>
