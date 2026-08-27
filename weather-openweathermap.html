@@ -20,6 +20,7 @@
 
     <script>
         const API_KEY = "8321f900611d373f58039530b8a1a9ae";
+        const QWEATHER_KEY = "d6a480091f2249fbb54ed3f04a4f1d74";
 
         // 统一用经纬度查询天气（最准确，避免城市名歧义导致数据错误）
         async function getWeatherByCoords(lat, lon, label) {
@@ -46,22 +47,24 @@
             }
         }
 
-        // 手动输入城市查询天气：先解析中文城市名为经纬度，再查天气
+        // 手动输入城市查询天气：用和风天气解析中文城市，再用 OpenWeatherMap 查天气
         async function getWeatherByCity() {
             const city = document.getElementById('city-input').value.trim();
             if (!city) return;
 
             try {
                 const geoRes = await fetch(
-                    `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)},CN&limit=1&appid=${API_KEY}`
+                    `https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(city)}&key=${QWEATHER_KEY}`
                 );
                 if (!geoRes.ok) throw new Error(`地理编码失败: ${geoRes.status}`);
                 const geoData = await geoRes.json();
 
-                if (!geoData.length) throw new Error("未找到该城市");
+                if (geoData.code !== "200" || !geoData.location || !geoData.location.length) {
+                    throw new Error("未找到该城市");
+                }
 
-                const loc = geoData[0];
-                const label = `${loc.name}${loc.state ? "·" + loc.state : ""}${loc.country ? "·" + loc.country : ""}`;
+                const loc = geoData.location[0];
+                const label = `${loc.country}·${loc.adm1}·${loc.adm2}·${loc.name}`;
                 await getWeatherByCoords(loc.lat, loc.lon, label);
             } catch (error) {
                 console.error("查询失败:", error);
@@ -78,19 +81,19 @@
             navigator.geolocation.getCurrentPosition(async position => {
                 const { latitude: lat, longitude: lon } = position.coords;
 
-                // 反向地理编码仅用于显示位置名称，天气数据直接用经纬度查询
+                // 使用和风天气地理编码获取中文位置名称（OpenWeatherMap 反向编码只返回拼音/英文名）
                 let label = "";
                 try {
                     const res = await fetch(
-                        `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
+                        `https://geoapi.qweather.com/v2/city/lookup?location=${lon},${lat}&key=${QWEATHER_KEY}`
                     );
                     const data = await res.json();
-                    if (data.length > 0) {
-                        const loc = data[0];
-                        label = `${loc.name}${loc.state ? "·" + loc.state : ""}${loc.country ? "·" + loc.country : ""}`;
+                    if (data.code === "200" && data.location && data.location.length > 0) {
+                        const loc = data.location[0];
+                        label = `${loc.country}·${loc.adm1}·${loc.adm2}·${loc.name}`;
                     }
                 } catch (error) {
-                    console.error("反向地理编码失败:", error);
+                    console.error("中文位置解析失败:", error);
                 }
                 await getWeatherByCoords(lat, lon, label);
             }, error => {
