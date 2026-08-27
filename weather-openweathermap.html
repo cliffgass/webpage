@@ -22,6 +22,14 @@
         const API_KEY = "8321f900611d373f58039530b8a1a9ae";
         const QWEATHER_KEY = "d6a480091f2249fbb54ed3f04a4f1d74";
 
+        // 风速统一换算为公里/小时(km/h)，并附带中国常用的风力等级(蒲福风级)
+        function windLevel(kmh) {
+            const thresholds = [1, 5, 11, 19, 28, 38, 49, 61, 74, 88, 102, 117];
+            let level = 0;
+            thresholds.forEach(t => { if (kmh > t) level++; });
+            return level;
+        }
+
         // 统一用经纬度查询天气（最准确，避免城市名歧义导致数据错误）
         async function getWeatherByCoords(lat, lon, label) {
             const weatherDiv = document.getElementById('weather-data');
@@ -39,7 +47,7 @@
                     <p>体感温度：${data.main.feels_like}°C</p>
                     <p>天气：${data.weather[0].description}</p>
                     <p>湿度：${data.main.humidity}%</p>
-                    <p>风速：${data.wind.speed} m/s</p>
+                    <p>风速：${(data.wind.speed * 3.6).toFixed(1)} 公里/小时（${windLevel(data.wind.speed * 3.6)}级风）</p>
                 `;
             } catch (error) {
                 console.error("获取天气失败:", error);
