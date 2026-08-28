@@ -87,7 +87,6 @@
         '    <a href="tools.html">工具箱</a>' +
         '    <a href="weather.html">天气</a>' +
         '    <a href="article.html">文章</a>' +
-        '    <a href="privacy.html">隐私</a>' +
         '  </nav>' +
         '</div>';
     document.body.insertBefore(nav, document.body.firstChild);
