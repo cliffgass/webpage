@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# 禁止收录的临时/测试页面
+Disallow: /index.nginx-debian.html_welcome
+
+Sitemap: https://webpage.dudufashion.cloudns.ph/sitemap.xml
